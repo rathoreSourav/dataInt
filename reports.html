@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+
+  <title>Bike Theft Analysis</title>
+  <meta content="" name="description">
+  <meta content="" name="keywords">
+
+  <!-- Favicons -->
+  <link href="assets/img/bikeTheft.png" rel="icon">
+  <link href="assets/img/apple-touch-icon.png" rel="apple-touch-icon">
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.gstatic.com" rel="preconnect">
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,600,600i,700,700i|Nunito:300,300i,400,400i,600,600i,700,700i|Poppins:300,300i,400,400i,500,500i,600,600i,700,700i" rel="stylesheet">
+
+  <!-- Vendor CSS Files -->
+  <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="assets/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
+  <link href="assets/vendor/boxicons/css/boxicons.min.css" rel="stylesheet">
+  <link href="assets/vendor/quill/quill.snow.css" rel="stylesheet">
+  <link href="assets/vendor/quill/quill.bubble.css" rel="stylesheet">
+  <link href="assets/vendor/remixicon/remixicon.css" rel="stylesheet">
+  <link href="assets/vendor/simple-datatables/style.css" rel="stylesheet">
+
+  <link href="assets/css/style.css" rel="stylesheet">
+
+  <style>
+  #chartdiv {
+    width: 100%;
+    height: 500px;
+}
+</style>
+
+<!-- Resources for charts -->
+<script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/percent.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+
+
+<!-- Chart code -->
+<script>
+am5.ready(function() {
+var root = am5.Root.new("chartdiv");
+root.setThemes([am5themes_Animated.new(root)]);
+
+var container = root.container.children.push(
+  am5.Container.new(root, {
+    width: am5.p100,
+    height: am5.p100,
+    layout: root.horizontalLayout
+  })
+);
+
+var chart = container.children.push(
+  am5percent.PieChart.new(root, {
+    tooltip: am5.Tooltip.new(root, {})
+  })
+);
+
+var series = chart.series.push(
+  am5percent.PieSeries.new(root, {
+    valueField: "value",
+    categoryField: "category",
+    alignLabels: false
+  })
+);
+
+series.labels.template.setAll({
+  textType: "circular",
+  radius: 4
+});
+series.ticks.template.set("visible", false);
+series.slices.template.set("toggleKey", "none");
+
+// add events
+series.slices.template.events.on("click", function(e) {
+  selectSlice(e.target);
+});
+
+var subChart = container.children.push(
+  am5percent.PieChart.new(root, {
+    radius: am5.percent(50),
+    tooltip: am5.Tooltip.new(root, {})
+  })
+);
+
+// Create sub series
+// https://www.amcharts.com/docs/v5/charts/percent-charts/pie-chart/#Series
+var subSeries = subChart.series.push(
+  am5percent.PieSeries.new(root, {
+    valueField: "value",
+    categoryField: "category"
+  })
+);
+
+subSeries.data.setAll([
+  { category: "CenterTown", value: 0 },
+  { category: "SandyHills", value: 0 },
+  { category: "Downtown", value: 0 },
+  { category: "Dow's Lake", value: 0 },
+  { category: "Billings Bridge", value: 0 },
+  { category: "Stittsville", value: 0 },
+  { category: "Carleton University", value: 0 }
+]);
+subSeries.slices.template.set("toggleKey", "none");
+
+var selectedSlice;
+
+series.on("startAngle", function() {
+  updateLines();
+});
+
+container.events.on("boundschanged", function() {
+  root.events.on("frameended", function(){
+    updateLines();
+   })
+})
+
+function updateLines() {
+  if (selectedSlice) {
+    var startAngle = selectedSlice.get("startAngle");
+    var arc = selectedSlice.get("arc");
+    var radius = selectedSlice.get("radius");
+
+    var x00 = radius * am5.math.cos(startAngle);
+    var y00 = radius * am5.math.sin(startAngle);
+
+    var x10 = radius * am5.math.cos(startAngle + arc);
+    var y10 = radius * am5.math.sin(startAngle + arc);
+
+    var subRadius = subSeries.slices.getIndex(0).get("radius");
+    var x01 = 0;
+    var y01 = -subRadius;
+
+    var x11 = 0;
+    var y11 = subRadius;
+
+    var point00 = series.toGlobal({ x: x00, y: y00 });
+    var point10 = series.toGlobal({ x: x10, y: y10 });
+
+    var point01 = subSeries.toGlobal({ x: x01, y: y01 });
+    var point11 = subSeries.toGlobal({ x: x11, y: y11 });
+
+    line0.set("points", [point00, point01]);
+    line1.set("points", [point10, point11]);
+  }
+}
+
+// lines
+var line0 = container.children.push(
+  am5.Line.new(root, {
+    position: "absolute",
+    stroke: root.interfaceColors.get("text"),
+    strokeDasharray: [2, 2]
+  })
+);
+var line1 = container.children.push(
+  am5.Line.new(root, {
+    position: "absolute",
+    stroke: root.interfaceColors.get("text"),
+    strokeDasharray: [2, 2]
+  })
+);
+
+// Set data
+// https://www.amcharts.com/docs/v5/charts/percent-charts/pie-chart/#Setting_data
+series.data.setAll([
+  {
+    category: "Stolen",
+    value: 500,
+    subData: [
+      { category: "CenterTown", value: 4 },
+      { category: "SandyHills", value: 6 },
+      { category: "Downtown", value: 7 },
+      { category: "Dow's Lake", value: 8 },
+      { category: "Billings Bridge", value: 0 },
+      { category: "Stittsville", value: 0 },
+      { category: "Carleton University", value: 0 }
+    ]
+  },
+  {
+    category: "Recovered",
+    value: 300,
+    subData: [
+      { category: "CenterTown", value: 0 },
+      { category: "SandyHills", value: 0 },
+      { category: "Downtown", value: 0 },
+      { category: "Dow's Lake", value: 0 },
+      { category: "Billings Bridge", value: 0 },
+      { category: "Stittsville", value: 0 },
+      { category: "Carleton University", value: 0 }
+
+    ]
+  },
+  {
+    category: "Found",
+    value: 200,
+    subData: [
+      { category: "CenterTown", value: 0 },
+      { category: "SandyHills", value: 0 },
+      { category: "Downtown", value: 0 },
+      { category: "Dow's Lake", value: 0 },
+      { category: "Billings Bridge", value: 0 },
+      { category: "Stittsville", value: 0 },
+      { category: "Carleton University", value: 0 }
+
+    ]
+  },
+  {
+    category: "Seized",
+    value: 150,
+    subData: [
+      { category: "CenterTown", value: 0 },
+      { category: "SandyHills", value: 0 },
+      { category: "Downtown", value: 0 },
+      { category: "Dow's Lake", value: 0 },
+      { category: "Billings Bridge", value: 0 },
+      { category: "Stittsville", value: 0 },
+      { category: "Carleton University", value: 0 }
+
+    ]
+  }
+]);
+
+function selectSlice(slice) {
+  selectedSlice = slice;
+  var dataItem = slice.dataItem;
+  var dataContext = dataItem.dataContext;
+
+  if (dataContext) {
+    var i = 0;
+    subSeries.data.each(function(dataObject) {
+      var dataObj = dataContext.subData[i];
+      if(dataObj){
+          subSeries.data.setIndex(i, dataObj);
+          if(!subSeries.dataItems[i].get("visible")){
+              subSeries.dataItems[i].show();
+          }
+      }
+      else{
+          subSeries.dataItems[i].hide();
+      }
+      
+      i++;
+    });
+  }
+
+  var middleAngle = slice.get("startAngle") + slice.get("arc") / 2;
+  var firstAngle = series.dataItems[0].get("slice").get("startAngle");
+
+  series.animate({
+    key: "startAngle",
+    to: firstAngle - middleAngle,
+    duration: 1000,
+    easing: am5.ease.out(am5.ease.cubic)
+  });
+  series.animate({
+    key: "endAngle",
+    to: firstAngle - middleAngle + 360,
+    duration: 1000,
+    easing: am5.ease.out(am5.ease.cubic)
+  });
+}
+
+container.appear(1000, 10);
+
+series.events.on("datavalidated", function() {
+  selectSlice(series.slices.getIndex(0));
+});
+
+}); // end am5.ready()
+</script>
+
+<!--end chart div time-->
+
+</head>
+
+<body>
+
+  <!-- ======= Header ======= -->
+  <header id="header" class="header fixed-top d-flex align-items-center">
+
+    <div class="d-flex align-items-center justify-content-between">
+      <a href="index.html" class="logo d-flex align-items-center">
+        <img src="assets/img/bikeTheft.png" alt="">
+        <span class="d-none d-lg-block">Bike Theft Analysis</span>
+      </a>
+      <i class="bi bi-list toggle-sidebar-btn"></i>
+    </div><!-- End Logo -->        
+  </header><!-- End Header -->
+
+  <!-- ======= Sidebar ======= -->
+  <aside id="sidebar" class="sidebar">
+
+    <ul class="sidebar-nav" id="sidebar-nav">
+
+      <li class="nav-item">
+        <a class="nav-link " href="index.html">
+          <i class="bi bi-grid"></i>
+          <span>Home</span>
+        </a>
+      </li>
+
+      <li class="nav-item">
+        <a class="nav-link collapsed" data-bs-target="#components-nav" data-bs-toggle="collapse" href="#">
+          <i class="bi bi-menu-button-wide"></i><span>Report</span><i class="bi bi-chevron-down ms-auto"></i>
+        </a>
+        <ul id="components-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
+          <li>
+            <a href="reports.html">
+              <i class="bi bi-circle"></i><span>Bike Theft Trend</span>
+            </a>
+          </li>
+          <li>
+            <a href="theftreportarea.html">
+              <i class="bi bi-circle"></i><span>Bike Theft Area Wise Status</span>
+            </a>
+          </li>
+        </ul>
+      </li><!-- End Components Nav -->
+
+    
+
+      <li class="nav-item">
+        <a class="nav-link collapsed" data-bs-target="#tables-nav" data-bs-toggle="collapse" href="#">
+          <i class="bi bi-layout-text-window-reverse"></i><span>Dataset</span><i class="bi bi-chevron-down ms-auto"></i>
+        </a>
+        <ul id="tables-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
+          <li>
+            <a href="tables-general.html">
+              <i class="bi bi-circle"></i><span>Explore Dataset</span>
+            </a>
+          </li>
+          <li>
+            <a href="tables-data.html">
+              <i class="bi bi-circle"></i><span>Upload Dataset</span>
+            </a>
+          </li>
+        </ul>
+      </li><!-- End Tables Nav -->
+
+      <li class="nav-item">
+        <a class="nav-link collapsed" data-bs-target="#charts-nav" data-bs-toggle="collapse" href="#">
+          <i class="bi bi-bar-chart"></i><span>Charts</span><i class="bi bi-chevron-down ms-auto"></i>
+        </a>
+        <ul id="charts-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
+          <li>
+            <a href="charts-chartjs.html">
+              <i class="bi bi-circle"></i><span>Year Wise Theft</span>
+            </a>
+          </li>
+          <li>
+            <a href="charts-apexcharts.html">
+              <i class="bi bi-circle"></i><span>Area Wise Theft</span>
+            </a>
+          </li>
+          <li>
+            <a href="charts-echarts.html">
+              <i class="bi bi-circle"></i><span>ECharts</span>
+            </a>
+          </li>
+        </ul>
+      </li><!-- End Charts Nav -->
+
+      <li class="nav-item">
+        <a class="nav-link collapsed" data-bs-target="#forms-nav" data-bs-toggle="collapse" href="#">
+          <i class="bi bi-journal-text"></i><span>About Us</span><i class="bi bi-chevron-down ms-auto"></i>
+        </a>
+        <ul id="forms-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
+          <li>
+            <a href="forms-elements.html">
+              <i class="bi bi-circle"></i><span>Our Team</span>
+            </a>
+          </li>
+          <li>
+            <a href="forms-layouts.html">
+              <i class="bi bi-circle"></i><span>Contact Us</span>
+            </a>
+          </li>
+        </ul>
+      </li><!-- End Forms Nav -->
+    </ul>
+
+  </aside><!-- End Sidebar-->
+
+  <main id="main" class="main">
+
+    <div class="pagetitle">
+      <h1>Report</h1>
+      <nav>
+        
+      </nav>
+    </div>
+
+    <section class="section dashboard">
+      
+            <div class="col-12">
+              <div class="card">
+               <h5 class="card-title">  &nbsp &nbsp Bike Theft Trend</h5>
+ 
+              <div class="row g-0">
+                <div id="chartdiv" style="max-width: 90%; max-height: 500px;"></div>
+             </div>
+            </div>
+          </div>
+          
+    </section>
+
+  </main><!-- End #main -->
+
+  <!-- ======= Footer ======= -->
+  <footer id="footer" class="footer">
+    <div class="credits">
+       Designed at <a href="#">Carleton U</a>
+    </div>
+  </footer><!-- End Footer -->
+
+  <a href="#" class="back-to-top d-flex align-items-center justify-content-center"><i class="bi bi-arrow-up-short"></i></a>
+
+  <!-- Vendor JS Files -->
+  <script src="assets/vendor/apexcharts/apexcharts.min.js"></script>
+  <script src="assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="assets/vendor/chart.js/chart.min.js"></script>
+  <script src="assets/vendor/echarts/echarts.min.js"></script>
+  <script src="assets/vendor/quill/quill.min.js"></script>
+  <script src="assets/vendor/simple-datatables/simple-datatables.js"></script>
+  <script src="assets/vendor/tinymce/tinymce.min.js"></script>
+  <script src="assets/vendor/php-email-form/validate.js"></script>
+
+  <script src="assets/js/main.js"></script>
+
+</body>
+
+</html>
